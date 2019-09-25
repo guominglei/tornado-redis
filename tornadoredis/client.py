@@ -280,6 +280,7 @@ class Client(object):
         self._pipeline = None
 
     def __del__(self):
+        print 'del'
         try:
             connection = self.connection
             pool = self._connection_pool
@@ -419,7 +420,7 @@ class Client(object):
         return res
     ####
 
-    @gen.engine
+    @gen.coroutine
     def execute_command(self, cmd, *args, **kwargs):
         result = None
         execute_pending = cmd not in ('AUTH', 'SELECT')
@@ -476,13 +477,15 @@ class Client(object):
                     if isinstance(resp, partial):
                         resp = yield gen.Task(resp)
                     result = self.format_reply(cmd_line, resp)
+                    print result, type(result)
+                    #raise gen.Return(result)
                     break
 
         if execute_pending:
             self.connection.execute_pending_command()
 
-        if callback:
-            callback(result)
+        if result:
+            raise gen.Return(result)
 
     @gen.engine
     def _consume_bulk(self, tail, callback=None):
@@ -721,7 +724,7 @@ class Client(object):
         self.execute_command('MSETNX', *items, callback=callback)
 
     def get(self, key, callback=None):
-        self.execute_command('GET', key, callback=callback)
+        self.execute_command('GET', key)
 
     def mget(self, keys, callback=None):
         self.execute_command('MGET', *keys, callback=callback)

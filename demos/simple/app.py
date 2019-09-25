@@ -10,19 +10,21 @@ logging.basicConfig(level=logging.DEBUG)
 
 log = logging.getLogger('app')
 
+CLIENT = tornadoredis.Client()
+
 
 class MainHandler(tornado.web.RequestHandler):
 
-    @tornado.web.asynchronous
-    @tornado.gen.engine
+    @tornado.gen.coroutine
     def get(self):
-        c = tornadoredis.Client()
-        foo = yield tornado.gen.Task(c.get, 'foo')
-        bar = yield tornado.gen.Task(c.get, 'bar')
-        zar = yield tornado.gen.Task(c.get, 'zar')
-        self.set_header('Content-Type', 'text/html')
-        self.render("template.html", title="Simple demo",
-                    foo=foo, bar=bar, zar=zar)
+        #c = tornadoredis.Client()
+        #foo = yield tornado.gen.Task(c.get,'foo')
+        foo = yield CLIENT.execute_command('GET', "foo")
+        print foo
+        if not foo:
+            foo = "1"
+        self.write(foo)
+        self.flush()
 
 
 application = tornado.web.Application([
@@ -30,20 +32,20 @@ application = tornado.web.Application([
 ])
 
 
-@tornado.gen.engine
+@tornado.gen.coroutine
 def create_test_data():
     c = tornadoredis.Client()
     with c.pipeline() as pipe:
         pipe.set('foo', 'Lorem ipsum #1', 12 * 60 * 60)
         pipe.set('bar', 'Lorem ipsum #2', 12 * 60 * 60)
         pipe.set('zar', 'Lorem ipsum #3', 12 * 60 * 60)
-        yield tornado.gen.Task(pipe.execute)
+        yield pipe.execute()
     print 'Test data initialization completed.'
 
 
 if __name__ == '__main__':
     # Start the data initialization routine
-    create_test_data()
+    #create_test_data()
     http_server = tornado.httpserver.HTTPServer(application)
     http_server.listen(8888)
     print 'Demo is runing at 0.0.0.0:8888\nQuit the demo with CONTROL-C'
